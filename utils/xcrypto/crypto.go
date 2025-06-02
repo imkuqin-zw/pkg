@@ -12,39 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package snowflake container the helper function
-package snowflake
+// Package xcrypto  provides cryptographic functions.
+package xcrypto
 
 import (
-	"github.com/imkuqin-zw/yggdrasil/pkg/logger"
+	"crypto/hmac"
+	"crypto/sha256"
 )
 
-var global *Snowflake
-
-// Init  the global snowflake
-func Init() {
-	global = NewSnowflake()
-}
-
-// FetchID fetch next id
-func FetchID() int64 {
-	return global.FetchID()
-}
-
-// WorkerID get global worker id
-func WorkerID() int64 {
-	return global.WorkerID()
-}
-
-// Release  current worker
-func Release() error {
-	if global == nil {
-		return nil
-	}
-	err := global.ReleaseWorkerID()
-	if err != nil {
-		logger.ErrorField("fault to release worker id", logger.Err(err))
-	}
-	global = nil
-	return err
+// HMACSHA256 computes a HMAC-SHA256 of data given the provided key.
+func HMACSHA256(key []byte, data []byte) []byte {
+	hash := hmac.New(sha256.New, key)
+	hash.Write(data)
+	return hash.Sum(nil)
 }

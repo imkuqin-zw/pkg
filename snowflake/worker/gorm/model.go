@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/imkuqin-zw/pkg/snowflake/worker"
-	xgorm "github.com/imkuqin-zw/yggdrasil/contrib/gorm"
-	"github.com/imkuqin-zw/yggdrasil/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -52,37 +50,6 @@ type SnowflakeWorker struct {
 type snowflakeWorkerData struct {
 	maxWorkerID int64
 	db          *gorm.DB
-	dbName      string
-	staticDB    bool
-}
-
-func (d *snowflakeWorkerData) openDB() {
-	if d.staticDB {
-		return
-	}
-	if d.db != nil {
-		return
-	}
-	d.db = xgorm.NewDB(d.dbName)
-}
-
-func (d *snowflakeWorkerData) closeDB() {
-	if d.staticDB {
-		return
-	}
-	if d.db == nil {
-		return
-	}
-	sqlDB, err := d.db.DB()
-	if err != nil {
-		logger.ErrorField("fault to get sql db", logger.Err(err))
-		return
-	}
-	if err = sqlDB.Close(); err != nil {
-		logger.ErrorField("fault to close db", logger.Err(err))
-		return
-	}
-	d.db = nil
 }
 
 func (d *snowflakeWorkerData) getReleasedWorkerInfo(business, flag string) (*worker.Info, error) {
@@ -150,7 +117,11 @@ func (d *snowflakeWorkerData) getNewWorker(business, flag string) (*worker.Info,
 	}, nil
 }
 
-func (d *snowflakeWorkerData) createWorker(tx *gorm.DB, workerID int64, business, flag string) error {
+func (d *snowflakeWorkerData) createWorker(
+	tx *gorm.DB,
+	workerID int64,
+	business, flag string,
+) error {
 	err := tx.Create(&SnowflakeWorker{
 		WorkerID: workerID,
 		Business: business,
@@ -181,7 +152,11 @@ func (d *snowflakeWorkerData) releaseWorkerID(workerID int64, business, flag str
 	return nil
 }
 
-func (d *snowflakeWorkerData) updateOverLastTime(workerID int64, business, flag string, overLastTime int64) error {
+func (d *snowflakeWorkerData) updateOverLastTime(
+	workerID int64,
+	business, flag string,
+	overLastTime int64,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err := d.db.WithContext(ctx).Model(&SnowflakeWorker{}).
@@ -196,7 +171,11 @@ func (d *snowflakeWorkerData) updateOverLastTime(workerID int64, business, flag 
 	return nil
 }
 
-func (d *snowflakeWorkerData) updateBackLastTime(workerID int64, business, flag string, backLastTime int64) error {
+func (d *snowflakeWorkerData) updateBackLastTime(
+	workerID int64,
+	business, flag string,
+	backLastTime int64,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err := d.db.WithContext(ctx).Model(&SnowflakeWorker{}).

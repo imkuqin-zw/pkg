@@ -35,15 +35,3 @@ type Worker interface {
 	// UpdateBackLastTime update back last time
 	UpdateBackLastTime(backLastTime int64) error
 }
-
-var workerIDAllocatorBuilders = map[string]func() Worker{}
-
-// RegisterWorkerBuilder register worker builder
-func RegisterWorkerBuilder(name string, builder func() Worker) {
-	workerIDAllocatorBuilders[name] = builder
-}
-
-// NewWorker new a worker by name
-func NewWorker(name string) Worker {
-	return workerIDAllocatorBuilders[name]()
-}

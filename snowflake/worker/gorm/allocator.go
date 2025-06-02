@@ -20,21 +20,28 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/imkuqin-zw/pkg/snowflake/worker"
-	"github.com/imkuqin-zw/yggdrasil/pkg/config"
-	"github.com/imkuqin-zw/yggdrasil/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
-
-func init() {
-	worker.RegisterWorkerBuilder("gorm", NewWorker)
-}
 
 // Config the worker allocator config
 type Config struct {
 	WorkerIDBitLength int8   `default:"6"`
 	Business          string `default:"default"`
 	DBName            string `default:"default"`
+	db                *gorm.DB
+}
+
+// WithDB set config db field
+func (cfg *Config) WithDB(db *gorm.DB) {
+	cfg.db = db
+}
+
+func (cfg *Config) check() error {
+	if cfg.db == nil {
+		return errors.New("db not set")
+	}
+	return nil
 }
 
 // WorkerIDAllocator gorm worker id allocator
@@ -47,41 +54,21 @@ type WorkerIDAllocator struct {
 	data              *snowflakeWorkerData
 }
 
-// NewWorkerWithDB new worker with db
-func NewWorkerWithDB(db *gorm.DB) worker.Worker {
-	cfg := Config{}
-	if err := config.Get("snowflake.worker.gorm").Scan(&cfg); err != nil {
-		logger.FatalField("fault to load snowflake worker config", logger.Err(err))
-	}
-	w := &WorkerIDAllocator{
-		workerIDBitLength: byte(cfg.WorkerIDBitLength),
-		flag:              uuid.Must(uuid.NewUUID()).String(),
-		business:          cfg.Business,
-		data: &snowflakeWorkerData{
-			db:          db,
-			staticDB:    true,
-			maxWorkerID: (1 << cfg.WorkerIDBitLength) - 1,
-		},
-	}
-	return w
-}
-
 // NewWorker new worker
-func NewWorker() worker.Worker {
-	cfg := Config{}
-	if err := config.Get("snowflake.worker.gorm").Scan(&cfg); err != nil {
-		logger.FatalField("fault to load snowflake worker config", logger.Err(err))
+func NewWorker(cfg *Config) (worker.Worker, error) {
+	if err := cfg.check(); err != nil {
+		return nil, err
 	}
 	w := &WorkerIDAllocator{
 		workerIDBitLength: byte(cfg.WorkerIDBitLength),
 		flag:              uuid.Must(uuid.NewUUID()).String(),
 		business:          cfg.Business,
 		data: &snowflakeWorkerData{
-			dbName:      cfg.DBName,
 			maxWorkerID: (1 << cfg.WorkerIDBitLength) - 1,
+			db:          cfg.db,
 		},
 	}
-	return w
+	return w, nil
 }
 
 // GetWorkerInfo get worker info
@@ -91,8 +78,6 @@ func (w *WorkerIDAllocator) GetWorkerInfo() (*worker.Info, error) {
 	if w.info != nil {
 		return w.info, nil
 	}
-	w.data.openDB()
-	defer w.data.closeDB()
 	workerInfo, err := w.data.getReleasedWorkerInfo(w.business, w.flag)
 	if err != nil {
 		return nil, err
@@ -129,8 +114,6 @@ func (w *WorkerIDAllocator) ReleaseWorkerID() error {
 	if w.info == nil {
 		return nil
 	}
-	w.data.openDB()
-	defer w.data.closeDB()
 	if err := w.data.releaseWorkerID(w.info.WorkerID, w.business, w.flag); err != nil {
 		return err
 	}
@@ -145,8 +128,6 @@ func (w *WorkerIDAllocator) UpdateOverLastTime(overLastTime int64) error {
 	if w.info == nil {
 		return errors.WithStack(errWorkerIDNotExist)
 	}
-	w.data.openDB()
-	defer w.data.closeDB()
 	if err := w.data.updateOverLastTime(w.info.WorkerID, w.business, w.flag, overLastTime); err != nil {
 		return err
 	}
@@ -161,8 +142,6 @@ func (w *WorkerIDAllocator) UpdateBackLastTime(backLastTime int64) error {
 	if w.info == nil {
 		return errors.WithStack(errWorkerIDNotExist)
 	}
-	w.data.openDB()
-	defer w.data.closeDB()
 	if err := w.data.updateBackLastTime(w.info.WorkerID, w.business, w.flag, backLastTime); err != nil {
 		return err
 	}

@@ -17,14 +17,8 @@ package static
 
 import (
 	"github.com/imkuqin-zw/pkg/snowflake/worker"
-	"github.com/imkuqin-zw/yggdrasil/pkg/config"
-	"github.com/imkuqin-zw/yggdrasil/pkg/logger"
 	"github.com/pkg/errors"
 )
-
-func init() {
-	worker.RegisterWorkerBuilder("static", NewWorkerIDAllocator)
-}
 
 // Config  the static worker config
 type Config struct {
@@ -39,16 +33,9 @@ type Worker struct {
 }
 
 // NewWorkerIDAllocator new static config worker allocator
-func NewWorkerIDAllocator() worker.Worker {
-	cfg := Config{}
-	if err := config.Get("snowflake.worker.static").Scan(&cfg); err != nil {
-		logger.FatalField("fault to load snowflake worker config", logger.Err(err))
-	}
+func NewWorkerIDAllocator(cfg *Config) (worker.Worker, error) {
 	if cfg.WorkerID > (1<<cfg.WorkerIDBitLength)-1 {
-		logger.FatalField("worker id  out of range",
-			logger.Int64("maxWorkerID", (1<<cfg.WorkerIDBitLength)-1),
-			logger.Int64("workerID", cfg.WorkerID),
-		)
+		return nil, errors.New("worker id  out of range")
 	}
 	w := &Worker{
 		info: &worker.Info{
@@ -56,7 +43,7 @@ func NewWorkerIDAllocator() worker.Worker {
 		},
 		workerIDBitLength: cfg.WorkerIDBitLength,
 	}
-	return w
+	return w, nil
 }
 
 // GetWorkerInfo get worker info

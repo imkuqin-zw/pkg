@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package snowflake is a snowflake id generator.
 package snowflake
 
 import (
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/imkuqin-zw/pkg/snowflake/worker"
-	"github.com/imkuqin-zw/yggdrasil/pkg/config"
-	"github.com/imkuqin-zw/yggdrasil/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 // Config the snowflake config
@@ -31,23 +32,28 @@ type Config struct {
 	MinSeqNumber     int64  `default:"5"`
 	TopOverCostCount int    `default:"2000"`
 	WorkerName       string `default:"static"`
+	worker           worker.Worker
 }
 
-func (c *Config) init() {
+// WithWorker set worker
+func (c *Config) WithWorker(w worker.Worker) {
+	c.worker = w
+}
+
+func (c *Config) check() error {
 	if c.MaxSeqNumber == 0 {
 		c.MaxSeqNumber = (1 << c.SeqBitLength) - 1
 	}
 	if c.MinSeqNumber < 5 { // nolint: mnd
-		logger.FatalField("min seq number must greater than 5",
-			logger.Int64("minSeqNumber", c.MinSeqNumber),
-		)
+		return errors.Errorf("min seq number must  greater than 5")
 	}
 	if c.MinSeqNumber > c.MaxSeqNumber {
-		logger.FatalField("min seq number must less than max seq number",
-			logger.Int64("minSeqNumber", c.MinSeqNumber),
-			logger.Int64("maxSeqNumber", c.MaxSeqNumber),
-		)
+		return errors.Errorf("min seq number must  less than max seq number ")
 	}
+	if c.worker == nil {
+		return errors.New("worker not set")
+	}
+	return nil
 }
 
 // Snowflake snowflake
@@ -75,25 +81,21 @@ type Snowflake struct {
 	worker worker.Worker
 }
 
-// NewSnowflakeWithWorker new snowflake with a worker
-func NewSnowflakeWithWorker(w worker.Worker) *Snowflake {
-	cfg := &Config{}
-	if err := config.Get("snowflake").Scan(cfg); err != nil {
-		logger.FatalField("fault to load snowflake config", logger.Err(err))
+// NewSnowflake new snowflake by config
+func NewSnowflake(cfg *Config) (*Snowflake, error) {
+	if err := cfg.check(); err != nil {
+		return nil, err
 	}
-	cfg.init()
-
+	w := cfg.worker
 	if w.WorkerIDBitLength()+cfg.SeqBitLength > 22 { // nolint: mnd
-		logger.FatalField("worker id bit length + seq bit length must less than 22",
-			logger.Int8("seqBitLength", int8(cfg.SeqBitLength)),
-			logger.Int8("workerIDLength", int8(w.WorkerIDBitLength())),
-		)
+		return nil, errors.Errorf("worker id bit length + seq bit length must less than 22")
 	}
 	workerInfo, err := w.GetWorkerInfo()
 	if err != nil {
-		logger.FatalField("fault to alloc worker id", logger.Err(err))
+		return nil, err
 	}
-	logger.InfoField("snowflake", logger.Int64("workerID", workerInfo.WorkerID))
+	slog.Info("snowflake generate",
+		slog.Int64("worker_id", workerInfo.WorkerID))
 	snowflake := &Snowflake{
 		baseTime:          cfg.BaseTime,
 		workerID:          workerInfo.WorkerID,
@@ -106,46 +108,11 @@ func NewSnowflakeWithWorker(w worker.Worker) *Snowflake {
 		currentSeqNumber:  cfg.MinSeqNumber,
 		worker:            w,
 	}
-	return snowflake
-}
-
-// NewSnowflake new snowflake class
-func NewSnowflake() *Snowflake {
-	cfg := &Config{}
-	if err := config.Get("snowflake").Scan(cfg); err != nil {
-		logger.FatalField("fault to load snowflake config", logger.Err(err))
+	if workerInfo.OverLastTime >= snowflake.getCurrentTimeTick() {
+		snowflake.lastTimeTick = workerInfo.OverLastTime
+		snowflake.getNextTimeTick()
 	}
-	cfg.init()
-	w := worker.NewWorker(cfg.WorkerName)
-	if w.WorkerIDBitLength()+cfg.SeqBitLength > 22 { // nolint: mnd
-		logger.FatalField("worker id bit length + seq bit length must less than 22",
-			logger.Int8("seqBitLength", int8(cfg.SeqBitLength)),
-			logger.Int8("workerIDLength", int8(w.WorkerIDBitLength())),
-		)
-	}
-	workerInfo, err := w.GetWorkerInfo()
-	if err != nil {
-		logger.FatalField("fault to alloc worker id", logger.Err(err))
-	}
-	logger.InfoField("snowflake", logger.Int64("workerID", workerInfo.WorkerID))
-	s := &Snowflake{
-		baseTime:          cfg.BaseTime,
-		workerID:          workerInfo.WorkerID,
-		workerIDBitLength: w.WorkerIDBitLength(),
-		seqBitLength:      cfg.SeqBitLength,
-		maxSeqNumber:      cfg.MaxSeqNumber,
-		minSeqNumber:      cfg.MinSeqNumber,
-		topOverCostCount:  cfg.TopOverCostCount,
-		timestampShift:    w.WorkerIDBitLength() + cfg.SeqBitLength,
-		currentSeqNumber:  cfg.MinSeqNumber,
-		worker:            w,
-		minBackTimeTick:   workerInfo.BackLastTime,
-	}
-	if workerInfo.OverLastTime >= s.getCurrentTimeTick() {
-		s.lastTimeTick = workerInfo.OverLastTime
-		s.getNextTimeTick()
-	}
-	return s
+	return snowflake, nil
 }
 
 // FetchID fetch next ID
@@ -218,7 +185,7 @@ func (w *Snowflake) nextOverCostID() int64 {
 
 func (w *Snowflake) beginOverCostAction() {
 	if err := w.worker.UpdateOverLastTime(w.lastTimeTick + 1); err != nil {
-		logger.ErrorField("fault to update over last time", logger.Err(err))
+		slog.Error("fault to update over last time", "error", err)
 		w.endOverCostAction(w.getNextTimeTick())
 		return
 	}

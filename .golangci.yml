@@ -1,15 +1,8 @@
-# Copyright 2025. All rights reserved.
-# Use of this source code is governed by a MIT style
-# license that can be found in the LICENSE file.
+version: "2"
 
-# 静态代码检查配置文件
 linters:
-  disable-all: true
+  default: none
   enable:
-    # 格式化
-    - gofmt
-    - goimports
-
     # 基础检查
     - govet
     - staticcheck
@@ -18,7 +11,6 @@ linters:
 
     # 风格
     - revive
-    - gosimple
     - unconvert
 
     # 安全
@@ -28,8 +20,24 @@ linters:
     - bodyclose
     - noctx
 
-issues:
-  exclude-use-default: false
-  exclude-dirs:
-    - vendor
-    - third_party
+  exclusions:
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: aip
+        linters:
+          - gocyclo
+          - errcheck
+          - staticcheck
+          - dupl
+          - gosec
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+  exclusions:
+    paths:
+      - "aip"

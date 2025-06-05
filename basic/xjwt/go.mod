@@ -1,4 +1,4 @@
-module github.com/imkuqin-zw/pkg/xjwt
+module github.com/imkuqin-zw/pkg/basic/xjwt
 
 go 1.23.9
 

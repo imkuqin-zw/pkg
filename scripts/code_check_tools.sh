@@ -16,7 +16,7 @@ ROOT_DIR=$(
 source "${ROOT_DIR}/scripts/util.sh"
 
 LINTER=golangci-lint
-LINTER_CONFIG=${ROOT_DIR}/.golangci.yml
+LINTER_CONFIG=${ROOT_DIR}/.golangci.yaml
 FAILURE_FILE=${ROOT_DIR}/scripts/.hack/.lintcheck_failures
 IGNORED_FILE=${ROOT_DIR}/scripts/.hack/.test_ignored_files
 

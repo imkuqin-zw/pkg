@@ -17,7 +17,7 @@ package aip
 import (
 	"testing"
 
-	. "github.com/imkuqin-zw/pkg/aip/testing/assertions"
+	. "github.com/imkuqin-zw/pkg/basic/aip/testing/assertions"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

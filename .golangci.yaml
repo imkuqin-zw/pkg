@@ -40,4 +40,4 @@ formatters:
     - golines
   exclusions:
     paths:
-      - "aip"
+      - "basic/aip"

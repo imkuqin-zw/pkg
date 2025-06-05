@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/imkuqin-zw/pkg/snowflake/worker"
+	"github.com/imkuqin-zw/pkg/basic/snowflake/worker"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )

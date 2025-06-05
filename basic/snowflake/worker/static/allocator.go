@@ -16,7 +16,7 @@
 package static
 
 import (
-	"github.com/imkuqin-zw/pkg/snowflake/worker"
+	"github.com/imkuqin-zw/pkg/basic/snowflake/worker"
 	"github.com/pkg/errors"
 )
 
@@ -32,8 +32,8 @@ type Worker struct {
 	workerIDBitLength byte
 }
 
-// NewWorkerIDAllocator new static config worker allocator
-func NewWorkerIDAllocator(cfg *Config) (worker.Worker, error) {
+// NewWorker new static config worker allocator
+func NewWorker(cfg *Config) (worker.Worker, error) {
 	if cfg.WorkerID > (1<<cfg.WorkerIDBitLength)-1 {
 		return nil, errors.New("worker id  out of range")
 	}

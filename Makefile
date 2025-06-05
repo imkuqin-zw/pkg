@@ -4,6 +4,9 @@ COPYRIGHT_SHELL="./scripts/copyright/update-copyright.sh"
 
 $(shell chmod +x  ${CODE_CHECK_TOOLS_SHELL} ${COPYRIGHT_SHELL})
 
+# Copy githook scripts when execute makefile
+$(shell cp -f githooks/* .git/hooks/)
+
 .PHONY: lint
 lint:
 	@${CODE_CHECK_TOOLS_SHELL} lint "$(mod)"

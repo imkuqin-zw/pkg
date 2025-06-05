@@ -1,8 +1,9 @@
 go 1.23.9
 
 use (
-	./aip
-	./snowflake
+	./basic/aip
+	./basic/snowflake
+	./basic/xjwt
 	./utils
-	./xjwt
+	./yggdrasil/snowflake
 )
